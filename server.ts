@@ -7,6 +7,7 @@ import {
 } from "./src/utils/uuid";
 import * as fs from "fs";
 import * as path from "path";
+import imageQueue from "./src/services/Job-Queue/queue";
 
 let connectedDevice: any = null;
 let photoAckCharacteristic: any = null;
@@ -19,14 +20,21 @@ let previousChunk = -1; // Track the previous chunk ID
 let capturing = false; // Flag to indicate if we are currently capturing an image
 let packetCount = 0; // Track the number of packets received
 
-// Save photo function
 const savePhoto = (photoBuffer: Buffer) => {
   const filePath = path.join(__dirname, "tmp", "images", `${Date.now()}.jpg`);
-  fs.writeFile(filePath, photoBuffer, (err) => {
+  fs.writeFile(filePath, photoBuffer, async (err) => {
     if (err) {
       console.error("Error saving photo:", err);
     } else {
       console.log(`Photo saved at: ${filePath}`);
+
+      // Add job to the queue after the photo is successfully saved
+      try {
+        await imageQueue.add("process-image", { imagePath: filePath });
+        console.log("Job added to the queue for image processing");
+      } catch (error) {
+        console.error("Error adding job to the queue:", error);
+      }
     }
   });
 };
