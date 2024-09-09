@@ -1,6 +1,6 @@
 import axios from "axios";
-import fs from "fs";
-
+import openai from "openai";
+import { imageToBase64 } from "../utils/imageToBase64";
 export async function transcribeAudio(audioData: Blob) {
   const formData = new FormData();
   formData.append("file", audioData, "audio.wav");
@@ -139,28 +139,38 @@ export async function textToSpeech(text: string) {
   }
 }
 
-// Function to convert image to base64
-function imageToBase64(path: string) {
-  const image = fs.readFileSync(path, { encoding: "base64" });
-  return `data:image/jpeg;base64,${image}`; // Adjust the MIME type if necessary (e.g., image/png)
-}
-
 export async function describeImage(imagePath: string) {
   const imageBase64 = imageToBase64(imagePath);
   try {
-    const response = await axios.post(
-      "https://api.openai.com/v1/images/descriptions",
-      {
-        image: imageBase64,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
+    const client = new openai({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    const response = await client.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a highly intelligent and detailed visual analyst AI specializing in generating accurate, comprehensive, and context-aware descriptions of images. Your role is to analyze the content of any image deeply and describe it in clear, vivid, and precise language.
+
+Follow these guidelines when describing images:
+
+Objects & Entities: List and describe all recognizable objects, people, animals, and notable entities within the image. Specify their positions relative to one another, along with their colors, textures, and shapes.
+Actions & Interactions: Clearly describe any actions occurring in the image, including interactions between objects, people, or the environment.
+Setting & Environment: Provide context for where the image is set. Include details like whether it’s indoor or outdoor, natural or artificial lighting, time of day (if visible), and any weather conditions or other environmental elements.
+Contextual Information: Infer the possible mood, purpose, or background story of the image, but only when the visual information clearly supports this. Stay as close as possible to the factual details present in the image.
+Fine Details: Capture even minor details such as textures, patterns, reflections, shadows, and light sources. Focus on subtleties that might be overlooked but contribute to the overall understanding of the image.
+Avoid Assumptions: If a detail is unclear or ambiguous, describe it as such without making unwarranted assumptions.
+Your descriptions should be vivid and provide the level of detail necessary for someone who cannot see the image to fully grasp its contents.`,
         },
-      }
-    );
-    return response.data;
+        { role: "user", content: imageBase64 },
+      ],
+    });
+    console.log("RESZ", response);
+    if (response.choices[0].message.content) {
+      return response.choices[0].message.content;
+    } else {
+      return null;
+    }
   } catch (error) {
     console.error("Error in describeImage:", error);
     return null; // or handle error differently
@@ -192,7 +202,7 @@ export async function gptRequest(systemPrompt: string, userPrompt: string) {
   }
 }
 
-textToSpeech("Hello I am an agent");
+// textToSpeech("Hello I am an agent");
 console.info(
   gptRequest(
     `
