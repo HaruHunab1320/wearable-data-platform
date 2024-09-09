@@ -21,20 +21,23 @@ let capturing = false; // Flag to indicate if we are currently capturing an imag
 let packetCount = 0; // Track the number of packets received
 
 const savePhoto = (photoBuffer: Buffer) => {
-  const filePath = path.join(__dirname, "tmp", "images", `${Date.now()}.jpg`);
+  const fileName = `${Date.now()}.jpg`;
+  const rootDir = process.cwd();
+  const filePath = path.join(rootDir, "tmp", "images", fileName);
+  fs.mkdirSync(path.join(rootDir, "tmp", "images"), { recursive: true });
   fs.writeFile(filePath, photoBuffer, async (err) => {
     if (err) {
       console.error("Error saving photo:", err);
-    } else {
-      console.log(`Photo saved at: ${filePath}`);
+      return;
+    }
+    console.log(`Photo saved at: ${filePath}`);
 
-      // Add job to the queue after the photo is successfully saved
-      try {
-        await imageQueue.add("process-image", { imagePath: filePath });
-        console.log("Job added to the queue for image processing");
-      } catch (error) {
-        console.error("Error adding job to the queue:", error);
-      }
+    // Add job to the queue after the photo is successfully saved
+    try {
+      await imageQueue.add("process-image", { imagePath: filePath });
+      console.log("Job added to the queue for image processing");
+    } catch (error) {
+      console.error("Error adding job to the queue:", error);
     }
   });
 };
