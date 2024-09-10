@@ -108,6 +108,20 @@ const connectToDevice = async (peripheral: any) => {
     connectedDevice = peripheral; // Set the connected device
     console.log("Connected to:", peripheral.advertisement.localName);
 
+    // Add MTU request and callback
+    peripheral.on("mtuChange", (mtu: number) => {
+      console.log(`MTU updated to: ${mtu}`);
+      // Adjust packet handling based on new MTU if necessary
+    });
+
+    try {
+      const requestedMTU = 512; // Or whatever size you want to request
+      await peripheral.requestMtuAsync(requestedMTU);
+      console.log(`Requested MTU of ${requestedMTU}`);
+    } catch (mtuError) {
+      console.warn(`Failed to set MTU: ${mtuError}. Using default MTU.`);
+    }
+
     const services = await peripheral.discoverServicesAsync();
     const service = services.find(
       (s: any) => normalizeUUID(s.uuid) === normalizeUUID(SERVICE_UUID)
@@ -233,6 +247,11 @@ const handlePhotoData = async (data: Buffer) => {
 const gracefulShutdown = async (signal: string) => {
   console.log(`Received ${signal}. Gracefully shutting down...`);
 
+  // Immediately stop processing photo data
+  capturing = false;
+  buffer = Buffer.alloc(0);
+  packetCount = 0;
+
   await noble.stopScanningAsync();
 
   if (connectedDevice) {
@@ -245,11 +264,26 @@ const gracefulShutdown = async (signal: string) => {
       if (service) {
         const characteristics = await service.discoverCharacteristicsAsync([
           PHOTO_CONTROL_UUID,
+          PHOTO_DATA_UUID,
         ]);
-        const photoControlCharacteristic = characteristics[0];
+        const photoControlCharacteristic = characteristics.find(
+          (char: any) =>
+            normalizeUUID(char.uuid) === normalizeUUID(PHOTO_CONTROL_UUID)
+        );
+        const photoDataCharacteristic = characteristics.find(
+          (char: any) =>
+            normalizeUUID(char.uuid) === normalizeUUID(PHOTO_DATA_UUID)
+        );
+
         if (photoControlCharacteristic) {
           await photoControlCharacteristic.writeAsync(Buffer.from([0]), false); // Stop command
           console.log("Photo capture stop command sent.");
+        }
+
+        if (photoDataCharacteristic) {
+          photoDataCharacteristic.removeAllListeners("data");
+          await photoDataCharacteristic.notifyAsync(false);
+          console.log("Stopped listening for photo data.");
         }
       }
       console.log("Disconnecting Bluetooth device...");
