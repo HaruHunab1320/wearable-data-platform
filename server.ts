@@ -16,10 +16,12 @@ let photoAckCharacteristic: any = null;
 const normalizeUUID = (uuid: string): string =>
   uuid.replace(/-/g, "").toLowerCase();
 
-let buffer: Buffer = Buffer.alloc(0);
-let previousChunk = -1; // Track the previous chunk ID
-let capturing = false; // Flag to indicate if we are currently capturing an image
-let packetCount = 0; // Track the number of packets received
+let photoBuffer: Buffer = Buffer.alloc(0);
+let audioBuffer: Buffer = Buffer.alloc(0);
+let previousPhotoChunk = -1; // Track the previous chunk ID for photos
+let capturingPhoto = false; // Flag to indicate if we are currently capturing an image
+let photoPacketCount = 0; // Track the number of photo packets received
+let audioPacketCount = 0; // Track the number of audio packets received
 
 const savePhoto = (photoBuffer: Buffer) => {
   const fileName = `${Date.now()}.jpg`;
@@ -40,6 +42,20 @@ const savePhoto = (photoBuffer: Buffer) => {
     } catch (error) {
       console.error("Error adding job to the queue:", error);
     }
+  });
+};
+
+const saveAudio = (audioBuffer: Buffer) => {
+  const fileName = `${Date.now()}.pcm`; // Save as a PCM file
+  const rootDir = process.cwd();
+  const filePath = path.join(rootDir, "tmp", "audio", fileName);
+  fs.mkdirSync(path.join(rootDir, "tmp", "audio"), { recursive: true });
+  fs.writeFile(filePath, audioBuffer, (err) => {
+    if (err) {
+      console.error("Error saving audio:", err);
+      return;
+    }
+    console.log(`Audio saved at: ${filePath}`);
   });
 };
 
@@ -185,148 +201,97 @@ const handlePhotoData = async (data: Buffer) => {
   const packet = data.slice(2); // Extract the data from the packet
 
   console.log(
-    `Received chunk with packetId: ${packetId}, size: ${packet.length}`
+    `Received photo chunk with packetId: ${packetId}, size: ${packet.length}`
   );
 
   if (packetId === 0xffff) {
     // If the packet ID signals the end of the photo
-    console.log(`Photo complete, total size: ${buffer.length} bytes`);
-    console.log(`Total packets received: ${packetCount}`);
-    savePhoto(buffer); // Save the photo buffer
-    previousChunk = -1; // Reset the previous chunk tracker
-    capturing = false;
-    buffer = Buffer.alloc(0); // Reset the buffer
-    packetCount = 0; // Reset packet count
+    console.log(`Photo complete, total size: ${photoBuffer.length} bytes`);
+    console.log(`Total packets received: ${photoPacketCount}`);
+    savePhoto(photoBuffer); // Save the photo buffer
+    previousPhotoChunk = -1; // Reset the previous chunk tracker
+    capturingPhoto = false;
+    photoBuffer = Buffer.alloc(0); // Reset the buffer
+    photoPacketCount = 0; // Reset packet count
     console.log("Photo saved, sending final ACK to device");
     await sendAck(1); // Final ACK after receiving the end frame
     return;
   }
 
-  if (packetId === 0x0001) {
-    console.log("Starting new photo capture");
-    capturing = true;
-    previousChunk = packetId;
-    buffer = Buffer.concat([buffer, packet]); // Concatenate the packet
-    packetCount = 1; // Initialize packet count
-    console.log("Sending ACK for first chunk");
+  if (packetId === 0x0001 || packetId === 0x0000) {
+    // Ensure the first chunk is always handled
+    console.log("Starting new photo capture, initializing buffer.");
+    capturingPhoto = true;
+    previousPhotoChunk = packetId;
+    photoBuffer = Buffer.concat([photoBuffer, packet]); // Concatenate the packet
+    photoPacketCount = 1; // Initialize packet count
+    console.log("Sending ACK for the first photo chunk.");
     await sendAck(1);
+    return; // Exit after handling the first chunk
   }
 
-  // Begin photo capture if not already capturing
-  if (!capturing) {
-    if (packetId === 0) {
-      console.log("Starting new photo capture");
-      capturing = true;
-      previousChunk = packetId;
-      buffer = Buffer.concat([buffer, packet]); // Concatenate the packet
-      packetCount = 1; // Initialize packet count
-      console.log("Sending ACK for first chunk");
-      await sendAck(1);
-    }
-  } else {
-    // Continue photo capture for sequential packets
-    if (packetId === previousChunk + 1) {
-      previousChunk = packetId;
-      buffer = Buffer.concat([buffer, packet]); // Append the packet to the buffer
-      packetCount++; // Increment the packet count
+  // Handle photo capture for sequential packets
+  if (capturingPhoto) {
+    if (packetId === previousPhotoChunk + 1) {
+      previousPhotoChunk = packetId;
+      photoBuffer = Buffer.concat([photoBuffer, packet]); // Append the packet to the buffer
+      photoPacketCount++; // Increment the packet count
       console.log(
-        `Received chunk ${packetId} - Total buffer size: ${buffer.length} bytes - Packets received: ${packetCount}`
+        `Received chunk ${packetId} - Total buffer size: ${photoBuffer.length} bytes - Packets received: ${photoPacketCount}`
       );
       await sendAck(1); // Send ACK
     } else {
       // Handle out-of-order packets
       console.error(
         `Invalid chunk sequence: expected ${
-          previousChunk + 1
+          previousPhotoChunk + 1
         }, received: ${packetId}`
       );
       console.log("Sending NACK, requesting retransmission");
       await sendAck(0); // Send NACK for the out-of-order packet
     }
+  } else {
+    console.log("Received photo chunk but not currently capturing.");
   }
 };
 
+// Handle audio data
 const handleAudioData = async (data: Buffer) => {
-  const packetId = data.readUInt16LE(0);
-  const packet = data.slice(2);
+  const packetId = data.readUInt16LE(0); // Read the packet ID
+  const packet = data.slice(2); // Extract the audio packet
 
   console.log(
     `Received audio chunk with packetId: ${packetId}, size: ${packet.length}`
   );
 
-  // Handle the audio data buffering, processing, and saving here...
+  // Append audio data to buffer
+  audioBuffer = Buffer.concat([audioBuffer, packet]);
+  audioPacketCount++;
+
+  // Save every 100 packets
+  if (audioPacketCount >= 100) {
+    console.log(`Saving audio data. Total packets: ${audioPacketCount}`);
+    saveAudio(audioBuffer); // Save the audio data
+    audioBuffer = Buffer.alloc(0); // Reset buffer
+    audioPacketCount = 0; // Reset packet count
+  }
 };
 
 const gracefulShutdown = async (signal: string) => {
   console.log(`Received ${signal}. Gracefully shutting down...`);
 
-  // Set a timeout for the entire shutdown process
-  const shutdownTimeout = setTimeout(() => {
-    console.log("Shutdown timed out. Forcing exit...");
-    process.exit(1);
-  }, 5000); // 5 seconds timeout
-
   try {
-    // Immediately stop processing photo data
-    capturing = false;
-    buffer = Buffer.alloc(0);
-    packetCount = 0;
-
     await noble.stopScanningAsync();
 
     if (connectedDevice) {
-      try {
-        console.log("Stopping photo capture...");
-        const services = await connectedDevice.discoverServicesAsync([
-          SERVICE_UUID,
-        ]);
-        const service = services[0];
-        if (service) {
-          const characteristics = await service.discoverCharacteristicsAsync([
-            PHOTO_CONTROL_UUID,
-            PHOTO_DATA_UUID,
-          ]);
-          const photoControlCharacteristic = characteristics.find(
-            (char: any) =>
-              normalizeUUID(char.uuid) === normalizeUUID(PHOTO_CONTROL_UUID)
-          );
-          const photoDataCharacteristic = characteristics.find(
-            (char: any) =>
-              normalizeUUID(char.uuid) === normalizeUUID(PHOTO_DATA_UUID)
-          );
-
-          if (photoControlCharacteristic) {
-            await photoControlCharacteristic.writeAsync(
-              Buffer.from([0]),
-              false
-            ); // Stop command
-            console.log("Photo capture stop command sent.");
-          }
-
-          if (photoDataCharacteristic) {
-            photoDataCharacteristic.removeAllListeners("data");
-            await photoDataCharacteristic.notifyAsync(false);
-            console.log("Stopped listening for photo data.");
-          }
-        }
-        // Wait for a moment to allow the device to process the disconnect command
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        console.log("Disconnecting Bluetooth device...");
-        await connectedDevice.disconnectAsync();
-        console.log("Bluetooth device disconnected.");
-      } catch (error) {
-        console.error("Error during disconnect process:", error);
-      }
+      console.log("Disconnecting Bluetooth device...");
+      await connectedDevice.disconnectAsync();
+      console.log("Bluetooth device disconnected.");
     }
 
-    // Clear the shutdown timeout as we've completed successfully
-    clearTimeout(shutdownTimeout);
-    console.log("Graceful shutdown completed.");
     process.exit(0);
   } catch (error) {
     console.error("Error during shutdown process:", error);
-    // Clear the shutdown timeout and exit with an error code
-    clearTimeout(shutdownTimeout);
     process.exit(1);
   }
 };
@@ -337,7 +302,7 @@ process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 // Start the server
 const startServer = async () => {
-  console.log("Starting server...");
+  console.log("Starting Bluetooth scanning...");
   await startBluetoothScanning();
 };
 
