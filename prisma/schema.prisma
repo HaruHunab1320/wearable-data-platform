@@ -16,6 +16,7 @@ datasource db {
 model Image {
   id          Int      @id @default(autoincrement())
   url         String   @unique
-  description String?
+  description String
   createdAt   DateTime @default(now())
+  capturedAt  BigInt
 }
