@@ -65,13 +65,17 @@ export const imageWorker = new Worker<JobData>(
       });
 
       // 4. Save metadata to database
-      await prisma.image.create({
+      const newImage = await prisma.image.create({
         data: {
           url,
           description,
+          capturedAt: BigInt(job.data.imagePath.split("_")[1]),
         },
       });
 
+      if (!newImage) {
+        throw new Error("Failed to save image metadata to database");
+      }
       console.log(
         `Image metadata saved to database with description: ${description}`
       );
