@@ -1,25 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { PhotoGrid } from "./PhotoGrid";
 
 export default function Home() {
-  const [isConnected, setIsConnected] = useState(false);
+  const [photos, setPhotos] = useState<Uint8Array[]>([]);
 
-  const connectToDevice = async () => {
-    try {
-      const response = await fetch("/api/bluetooth");
-      const data = await response.json();
-      console.log(data.message);
-      setIsConnected(true);
-    } catch (error) {
-      console.error("Failed to connect to device", error);
-    }
-  };
+  useEffect(() => {
+    // Fetch photos from the backend
+    fetch(`/api/getPhotos?start=${0}&end=${Date.now()}`)
+      .then((response) => response.json())
+      .then((data) => setPhotos(data));
+  }, []);
 
   return (
     <div>
-      <h1>Wearable Data Platform</h1>
-      <button onClick={connectToDevice}>
-        {isConnected ? "Connected" : "Connect to Wearable"}
-      </button>
+      <PhotoGrid photos={photos} />
     </div>
   );
 }
