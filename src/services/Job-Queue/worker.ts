@@ -3,8 +3,10 @@ import { redisConfig } from "../redis/redisConfig";
 import { PrismaClient } from "@prisma/client";
 import { describeImage } from "../openai";
 import { Storage } from "@google-cloud/storage";
+
 import * as fs from "fs/promises";
 import * as path from "path";
+import { convertMatToJpeg, ProcessedImageData, processImage } from "../opencv";
 
 const prisma = new PrismaClient();
 
@@ -43,33 +45,66 @@ export const imageWorker = new Worker<JobData>(
       // 1. Read the image file
       const imageBuffer = await fs.readFile(imagePath);
 
-      const description = await describeImage(imagePath);
-      if (!description) {
-        throw new Error("Failed to describe image");
-      }
-
-      // 3. Upload the image to Google Cloud Storage
       const bucket = storage.bucket(
         process.env["GOOGLE_CLOUD_STORAGE_BUCKET"] as string
       );
       const file = bucket.file(`image_${path.basename(imagePath)}`);
 
+      // const [url] = await file.getSignedUrl({
+      //   version: "v4",
+      //   action: "read",
+      //   expires: Date.now() + 15 * 60 * 1000, // 15 mins
+      // });
+
       await file.save(imageBuffer, {
         contentType: "image/jpeg",
       });
 
-      const [url] = await file.getSignedUrl({
-        version: "v4",
-        action: "read",
-        expires: Date.now() + 15 * 60 * 1000, // 15 mins
+      if (!file.publicUrl()) {
+        throw new Error("Failed to get public URL for image");
+      }
+
+      const description = await describeImage(file.publicUrl());
+
+      if (!description) {
+        throw new Error("Failed to describe image");
+      }
+
+      const processedData: ProcessedImageData = processImage(imagePath);
+
+      if (!processedData.imageWithBoxes) {
+        throw new Error("Failed to process image");
+      }
+
+      const { objects, keyPoints, descriptors, imageWithBoxes } = processedData;
+
+      console.log({ objects, keyPoints, descriptors, imageWithBoxes });
+
+      if (!imageWithBoxes) {
+        throw new Error("Failed to get image with boxes");
+      }
+
+      const imageWithBoxesJpeg = convertMatToJpeg(imageWithBoxes);
+
+      const fileWithBoxes = bucket.file(
+        `image_with_boxes_${path.basename(imagePath)}`
+      );
+      await fileWithBoxes.save(imageWithBoxesJpeg, {
+        contentType: "image/jpeg",
       });
+
+      // Clean up
+      processedData.objects.delete();
+      processedData.keyPoints.delete();
+      processedData.descriptors.delete();
+      processedData.imageWithBoxes.delete();
 
       // 4. Save metadata to database
       const newImage = await prisma.image.create({
         data: {
-          url,
+          url: file.publicUrl(),
           description,
-          capturedAt: BigInt(job.data.imagePath.split("_")[1]),
+          capturedAt: path.basename(imagePath).split(".jpg")[0],
         },
       });
 
