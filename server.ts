@@ -98,8 +98,6 @@ const startBluetoothScanning = async () => {
     if (peripheral.advertisement.localName === "OpenGlass") {
       console.log("Discovered 'OpenGlass' device");
       try {
-        await noble.stopScanningAsync();
-        console.log("Scanning stopped after discovering 'OpenGlass'");
         await connectToDevice(peripheral);
       } catch (error) {
         console.error("Error during discovery or connecting to device:", error);
