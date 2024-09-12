@@ -1,23 +1,17 @@
-import cv from "@techstark/opencv-js";
+import * as cv from "opencv4nodejs";
 
 export function calculateHistogram(image: cv.Mat): cv.Mat {
-  const gray = new cv.Mat();
-  cv.cvtColor(image, gray, cv.COLOR_RGBA2GRAY, 0);
+  const gray = image.cvtColor(cv.COLOR_BGR2GRAY);
 
-  const hist = new cv.Mat();
-  const channels = [0];
-  const mask = new cv.Mat();
-  const histSize = [256];
-  const ranges = [0, 256];
+  const histAxes = new cv.HistAxes({
+    channel: 0,
+    bins: 256,
+    ranges: [0, 256],
+  });
 
-  const grayVector = new cv.MatVector();
-  grayVector.push_back(gray);
+  const hist = cv.calcHist(gray, [histAxes]);
 
-  cv.calcHist(grayVector, channels, mask, hist, histSize, ranges, false);
-
-  gray.delete();
-  mask.delete();
-  grayVector.delete();
+  gray.release();
 
   return hist;
 }

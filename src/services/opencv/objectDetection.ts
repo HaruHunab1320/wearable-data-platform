@@ -1,17 +1,18 @@
-import cv from "@techstark/opencv-js";
+import * as cv from "opencv4nodejs";
 
 export async function detectObject(
-  image: cv.Mat,
+  imagePath: string,
   modelPath: string
-): Promise<cv.RectVector> {
-  const classifier = new cv.CascadeClassifier();
-  await classifier.load(modelPath);
+): Promise<cv.Rect[]> {
+  const classifier = new cv.CascadeClassifier(modelPath);
 
-  const gray = new cv.Mat();
-  cv.cvtColor(image, gray, cv.COLOR_RGBA2GRAY, 0);
+  // Read the image
+  const src = cv.imread(imagePath);
 
-  const objects = new cv.RectVector();
-  classifier.detectMultiScale(gray, objects, 1.1, 3, 0);
-  gray.delete();
-  return objects;
+  // Convert the image to grayscale (features work better in grayscale)
+  const gray = src.cvtColor(cv.COLOR_RGBA2GRAY);
+
+  const result = await classifier.detectMultiScaleAsync(gray);
+  gray.release();
+  return result.objects;
 }

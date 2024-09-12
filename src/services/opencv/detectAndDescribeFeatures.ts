@@ -1,4 +1,4 @@
-import cv from "@techstark/opencv-js";
+import * as cv from "opencv4nodejs";
 
 // Function to detect keypoints and compute descriptors
 export function detectAndDescribeFeatures(imagePath: string) {
@@ -6,20 +6,18 @@ export function detectAndDescribeFeatures(imagePath: string) {
   const src = cv.imread(imagePath);
 
   // Convert the image to grayscale (features work better in grayscale)
-  const gray = new cv.Mat();
-  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+  const gray = src.cvtColor(cv.COLOR_RGBA2GRAY);
 
   // Initialize ORB detector
-  const orb = new cv.ORB();
+  const orb = new cv.ORBDetector();
 
   // Detect keypoints and compute descriptors
-  const keyPoints = new cv.KeyPointVector();
-  const descriptors = new cv.Mat();
-  orb.detectAndCompute(gray, new cv.Mat(), keyPoints, descriptors);
+  const keyPoints = orb.detect(gray);
+  const descriptors = orb.compute(gray, keyPoints);
 
   // Clean up
-  src.delete();
-  gray.delete();
+  src.release();
+  gray.release();
 
   return { keyPoints, descriptors };
 }

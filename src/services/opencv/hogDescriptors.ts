@@ -1,26 +1,33 @@
-import cv from "@techstark/opencv-js";
+import * as cv from "opencv4nodejs";
 
-export function detectWithHOG(image: cv.Mat): cv.RectVector {
+export function detectWithHOG(imagePath: string) {
+  // Load the image
+  const image = cv.imread(imagePath);
+
+  // Initialize HOGDescriptor with default people detector
   const hog = new cv.HOGDescriptor();
-  const descriptors = new cv.Mat();
-  const objects = new cv.RectVector();
+  hog.setSVMDetector(hog.getDefaultPeopleDetector());
 
-  // Set the SVM detector (Pre-trained people detector)
-  hog.setSVMDetector(cv.HOGDescriptor.getDefaultPeopleDetector());
+  // Detect people
+  const { foundLocations, foundWeights } = hog.detectMultiScale(image);
 
-  // Detect people in the image
-  hog.detectMultiScale(
-    image,
-    objects,
-    descriptors,
-    0,
-    new cv.Size(8, 8),
-    new cv.Size(32, 32),
-    1.05,
-    2,
-    false
-  );
+  console.log("Found people locations:", foundLocations);
+  console.log("Detection confidence scores:", foundWeights);
 
-  descriptors.delete();
-  return objects;
+  // Draw rectangles around detected people
+  foundLocations.forEach((rect) => {
+    image.drawRectangle(
+      new cv.Point2(rect.x, rect.y),
+      new cv.Point2(rect.x + rect.width, rect.y + rect.height),
+      new cv.Vec3(0, 255, 0), // Green color for the rectangle
+      2 // Line thickness
+    );
+  });
+
+  // Display the result
+  cv.imshow("Detected People", image);
+  cv.waitKey();
+
+  image.release();
+  return foundLocations;
 }
