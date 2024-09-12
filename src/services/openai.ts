@@ -1,6 +1,5 @@
 import axios from "axios";
 import openai from "openai";
-import { imageToBase64 } from "../utils/imageToBase64";
 export async function transcribeAudio(audioData: Blob) {
   const formData = new FormData();
   formData.append("file", audioData, "audio.wav");
@@ -139,8 +138,7 @@ export async function textToSpeech(text: string) {
   }
 }
 
-export async function describeImage(imagePath: string) {
-  const imageBase64 = imageToBase64(imagePath);
+export async function describeImage(imageUrl: string) {
   try {
     const client = new openai({
       apiKey: process.env.OPENAI_API_KEY,
@@ -152,7 +150,7 @@ export async function describeImage(imagePath: string) {
           role: "system",
           content: `You are a highly intelligent and detailed visual analyst AI specializing in generating accurate, comprehensive, and context-aware descriptions of images. Your role is to analyze the content of any image deeply and describe it in clear, vivid, and precise language.`,
         },
-        { role: "user", content: imageBase64 },
+        { role: "user", content: imageUrl },
       ],
     });
     console.log("RESZ", response);
