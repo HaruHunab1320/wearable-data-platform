@@ -18,5 +18,8 @@ model Image {
   url         String   @unique
   description String
   createdAt   DateTime @default(now())
-  capturedAt  BigInt
+  capturedAt  String
+  objects     String?
+  keyPoints   String?
+  descriptors String?
 }
