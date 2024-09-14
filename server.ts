@@ -117,7 +117,7 @@ const startBluetoothScanning = async () => {
 };
 
 // Connects to the Bluetooth device
-const connectToDevice = async (peripheral: any) => {
+const connectToDevice = async (peripheral: noble.Peripheral) => {
   try {
     await peripheral.connectAsync();
     connectedDevice = peripheral; // Set the connected device
@@ -125,7 +125,8 @@ const connectToDevice = async (peripheral: any) => {
 
     const services = await peripheral.discoverServicesAsync();
     const service = services.find(
-      (s: any) => normalizeUUID(s.uuid) === normalizeUUID(SERVICE_UUID)
+      (s: noble.Service) =>
+        normalizeUUID(s.uuid) === normalizeUUID(SERVICE_UUID)
     );
     if (!service) {
       console.error(`Service with UUID ${SERVICE_UUID} not found!`);
@@ -134,11 +135,13 @@ const connectToDevice = async (peripheral: any) => {
 
     const characteristics = await service.discoverCharacteristicsAsync();
     const photoCharacteristic = characteristics.find(
-      (char: any) => normalizeUUID(char.uuid) === normalizeUUID(PHOTO_DATA_UUID)
+      (char: noble.Characteristic) =>
+        normalizeUUID(char.uuid) === normalizeUUID(PHOTO_DATA_UUID)
     );
 
     const photoAckChar = characteristics.find(
-      (char: any) => normalizeUUID(char.uuid) === normalizeUUID(PHOTO_ACK_UUID)
+      (char: noble.Characteristic) =>
+        normalizeUUID(char.uuid) === normalizeUUID(PHOTO_ACK_UUID)
     );
 
     if (photoAckChar) {
