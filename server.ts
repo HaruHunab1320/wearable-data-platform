@@ -10,11 +10,9 @@ import * as fs from "fs";
 import * as path from "path";
 import imageQueue from "./src/services/Job-Queue/queue";
 
-let connectedDevice: any = null;
-let photoAckCharacteristic: any = null;
-
-const normalizeUUID = (uuid: string): string =>
-  uuid.replace(/-/g, "").toLowerCase();
+let connectedDevice: noble.Peripheral | null = null;
+let photoAckCharacteristic: noble.Characteristic | null = null;
+let deviceControlCharacteristic: noble.Characteristic | null = null;
 
 let photoBuffer: Buffer = Buffer.alloc(0);
 let audioBuffer: Buffer = Buffer.alloc(0);
