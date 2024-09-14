@@ -5,6 +5,7 @@ import {
   PHOTO_CONTROL_UUID,
   PHOTO_ACK_UUID,
   AUDIO_DATA_UUID,
+  DEVICE_CONTROL_UUID,
 } from "./src/utils/uuid";
 import * as fs from "fs";
 import * as path from "path";
