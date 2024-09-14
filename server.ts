@@ -14,6 +14,7 @@ import imageQueue from "./src/services/Job-Queue/queue";
 let connectedDevice: noble.Peripheral | null = null;
 let photoAckCharacteristic: noble.Characteristic | null = null;
 let deviceControlCharacteristic: noble.Characteristic | null = null;
+const normalizeUUID = (uuid: string) => uuid.replace(/-/g, "").toLowerCase();
 
 let photoBuffer: Buffer = Buffer.alloc(0);
 let audioBuffer: Buffer = Buffer.alloc(0);
