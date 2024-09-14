@@ -93,7 +93,7 @@ const startBluetoothScanning = async () => {
     }
   });
 
-  noble.on("discover", async (peripheral) => {
+  noble.on("discover", async (peripheral: noble.Peripheral) => {
     console.log("Discovered peripheral:", peripheral.advertisement.localName);
     if (peripheral.advertisement.localName === "OpenGlass") {
       console.log("Discovered 'OpenGlass' device");
@@ -111,7 +111,7 @@ const startBluetoothScanning = async () => {
     console.log("Bluetooth scanning stopped.");
   });
 
-  noble.on("warning", (message: any) => {
+  noble.on("warning", (message: string) => {
     console.error("Noble warning:", message);
   });
 };
