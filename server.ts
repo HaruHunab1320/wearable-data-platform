@@ -63,11 +63,23 @@ const saveAudio = (audioBuffer: Buffer) => {
 };
 
 // Send acknowledgment to the device (1 = ACK, 0 = NACK)
-const sendAck = async (ackValue: number) => {
+const sendAck = async (ackNum: number, missingSeqNums: number[] = []) => {
   if (photoAckCharacteristic) {
+    // Prepare ACK packet with at least 2 bytes for ack_num
+    const numMissingSeqs = missingSeqNums.length;
+    const ackPacket = Buffer.alloc(2 + numMissingSeqs * 2);
+    ackPacket.writeUInt16LE(ackNum, 0);
+    // Optionally include missing sequence numbers for SACK
+    missingSeqNums.forEach((seqNum, index) => {
+      ackPacket.writeUInt16LE(seqNum, 2 + index * 2);
+    });
     try {
-      await photoAckCharacteristic.writeAsync(Buffer.from([ackValue]), false);
-      console.log(`Sent ${ackValue === 1 ? "ACK" : "NACK"} to device`);
+      await photoAckCharacteristic.writeAsync(ackPacket, false);
+      console.log(
+        `Sent ACK for packet ${ackNum}${
+          numMissingSeqs > 0 ? ` with missing packets: ${missingSeqNums}` : ""
+        }`
+      );
     } catch (error) {
       console.error("Error sending ACK:", error);
     }
@@ -206,70 +218,48 @@ const sendAudioStartCommand = async () => {
   }
 };
 
-// Handle photo data with acknowledgment window
-let photoChunkCounter = 0; // Counter to track number of chunks received
-const CHUNK_ACK_THRESHOLD = 10; // Number of chunks before sending an ACK
-
 const handlePhotoData = async (data: Buffer) => {
-  if (data.length < 2) {
+  if (data.length < 4) {
     console.error(
       `Received photo data with insufficient length: ${data.length} bytes`
     );
     return;
   }
 
-  const packetId = data.readUInt16LE(0); // Read the packet ID
-  const packet = data.subarray(2); // Extract the data from the packet
+  const packetId = data.readUInt16LE(0); // Bytes 0-1
+  const flags = data.readUInt8(2); // Byte 2
+  // Byte 3 is reserved
+  const packet = data.subarray(4); // Data starts from byte 4
 
   console.log(
-    `Received photo chunk with packetId: ${packetId}, size: ${packet.length} bytes`
+    `Received photo chunk with packetId: ${packetId}, flags: ${flags}, size: ${packet.length} bytes`
   );
-
-  // End of photo transmission
-  if (packetId === 0xffff) {
-    console.log(`Photo complete, total size: ${photoBuffer.length} bytes`);
-    savePhoto(photoBuffer); // Save the photo buffer
-    capturingPhoto = false;
-    photoBuffer = Buffer.alloc(0); // Reset the buffer
-    expectedPhotoPacketId = 0; // Reset expected packet ID
-    console.log("Photo saved, sending final ACK to device");
-    await sendAck(1); // Send final ACK after receiving the end frame
-    photoChunkCounter = 0; // Reset the chunk counter
-    return;
-  }
 
   // If starting a new photo capture
   if (!capturingPhoto) {
-    console.log("Starting new photo capture, initializing buffer.");
     capturingPhoto = true;
     expectedPhotoPacketId = packetId;
     photoBuffer = Buffer.from(packet); // Start the buffer
     console.log("Received first photo chunk.");
 
     // Send ACK for the first chunk
-    console.log(`Sending ACK after receiving chunk ${packetId}`);
-    await sendAck(1);
-    photoChunkCounter = 0; // Reset the chunk counter
+    await sendAck(packetId);
   } else {
     // Continuation of photo capture
     if (packetId === expectedPhotoPacketId + 1) {
       expectedPhotoPacketId = packetId;
       photoBuffer = Buffer.concat([photoBuffer, packet]); // Append the packet to the buffer
-      photoChunkCounter++; // Increment the chunk counter
       console.log(
         `Received chunk ${packetId} - Buffer size: ${photoBuffer.length} bytes`
       );
 
-      // Send ACK after receiving CHUNK_ACK_THRESHOLD chunks
-      if (photoChunkCounter >= CHUNK_ACK_THRESHOLD) {
-        console.log(`Sending ACK after ${photoChunkCounter} chunks`);
-        await sendAck(1); // Send ACK after 10 chunks
-        photoChunkCounter = 0; // Reset the chunk counter
-      }
-    } else if (packetId === expectedPhotoPacketId) {
+      // Send ACK for the latest in-order packet received
+      await sendAck(packetId);
+    } else if (packetId <= expectedPhotoPacketId) {
       // Duplicate packet received
-      console.warn(`Duplicate packet received: ${packetId}`);
-      await sendAck(1); // Optionally send ACK again
+      console.warn(`Duplicate or out-of-order packet received: ${packetId}`);
+      // Optionally, re-send ACK for the last confirmed packet
+      await sendAck(expectedPhotoPacketId);
     } else {
       // Out-of-order packet received
       console.error(
@@ -277,8 +267,21 @@ const handlePhotoData = async (data: Buffer) => {
           expectedPhotoPacketId + 1
         }, received ${packetId}`
       );
-      await sendAck(0); // Send NACK to request retransmission
+      // Optionally handle missing packets, e.g., by adding to a list of missing packets
+      // For now, we can send ACK for the last contiguous packet
+      await sendAck(expectedPhotoPacketId);
     }
+  }
+
+  // Check for EOF
+  if (flags === 1) {
+    console.log(`Photo complete, total size: ${photoBuffer.length} bytes`);
+    savePhoto(photoBuffer); // Save the photo buffer
+    capturingPhoto = false;
+    photoBuffer = Buffer.alloc(0); // Reset the buffer
+    expectedPhotoPacketId = 0; // Reset expected packet ID
+    console.log("Photo saved, sending final ACK to device");
+    await sendAck(packetId); // Send final ACK after receiving the end frame
   }
 };
 
