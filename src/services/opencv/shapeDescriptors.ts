@@ -1,6 +1,6 @@
-import * as cv from "opencv4nodejs";
+import cv, { Mat, Contour } from "@u4/opencv4nodejs";
 
-export async function findContours(image: cv.Mat): Promise<cv.Contour[]> {
+export async function findContours(image: Mat): Promise<Contour[]> {
   const gray = image.cvtColor(cv.COLOR_RGBA2GRAY);
   const thresholded = gray.threshold(100, 255, cv.THRESH_BINARY);
 

@@ -1,11 +1,11 @@
-import * as cv from "opencv4nodejs";
+import { Mat } from "@u4/opencv4nodejs";
 
 /**
  * Converts a Mat to a JPEG-encoded image and returns it as a base64 string.
  * @param mat The processed Mat image.
  * @returns The base64-encoded JPEG image string.
  */
-export function convertMatToJpeg(mat: cv.Mat): string {
+export function convertMatToJpeg(mat: Mat): string {
   // Create a canvas element
   const canvas = document.createElement("canvas");
   canvas.width = mat.cols;

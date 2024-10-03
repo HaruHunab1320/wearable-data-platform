@@ -1,17 +1,17 @@
-import * as cv from "opencv4nodejs";
+import cv, { Mat, KeyPoint, DescriptorMatch } from "@u4/opencv4nodejs";
 
 // Function to draw keypoints
-export function drawKeypoints(image: cv.Mat, keyPoints: cv.KeyPoint[]): cv.Mat {
+export function drawKeypoints(image: Mat, keyPoints: KeyPoint[]): Mat {
   return cv.drawKeyPoints(image, keyPoints);
 }
 
 // Function to draw matches between two images
 export function drawMatches(
-  image1: cv.Mat,
-  keyPoints1: cv.KeyPoint[],
-  image2: cv.Mat,
-  keyPoints2: cv.KeyPoint[],
-  matches: cv.DescriptorMatch[]
-): cv.Mat {
+  image1: Mat,
+  keyPoints1: KeyPoint[],
+  image2: Mat,
+  keyPoints2: KeyPoint[],
+  matches: DescriptorMatch[]
+): Mat {
   return cv.drawMatches(image1, image2, keyPoints1, keyPoints2, matches);
 }

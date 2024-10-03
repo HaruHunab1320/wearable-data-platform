@@ -4,11 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node server.ts",
+    "dev": "npm run clean && ts-node server.ts",
+    "clean": "rm -rf tmp/audio/* tmp/images/*",
     "build": "next build",
     "start": "NODE_ENV=production ts-node server.ts",
     "lint": "eslint .",
-    "worker": "ts-node src/services/Job-Queue/worker.ts"
+    "image-worker": "ts-node src/services/Job-Queue/imageWorker.ts"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +24,8 @@
     "@types/next": "^9.0.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@u4/opencv-build": "^1.1.1",
+    "@u4/opencv4nodejs": "^7.1.2",
     "@zxing/browser": "^0.1.5",
     "axios": "^1.7.7",
     "bullmq": "^5.12.14",
@@ -31,7 +34,6 @@
     "ioredis": "^5.4.1",
     "next": "^14.2.8",
     "openai": "^4.58.1",
-    "opencv4nodejs": "^5.6.0",
     "prisma": "^5.19.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -51,5 +53,8 @@
     "eslint-config-next": "^14.2.8",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.11"
+  },
+  "opencv4nodejs": {
+    "autoBuildOpencvVersion": "4.10.0"
   }
 }

@@ -1,12 +1,13 @@
-import { Worker, Job, QueueEvents } from "bullmq";
+import { Worker, Job } from "bullmq";
 import { redisConfig } from "../redis/redisConfig";
 import { PrismaClient } from "@prisma/client";
 import { describeImage } from "../openai";
+import { QueueEvents } from "bullmq";
 import { Storage } from "@google-cloud/storage";
 
 import * as fs from "fs/promises";
 import * as path from "path";
-import { convertMatToJpeg, ProcessedImageData, processImage } from "../opencv";
+// import { convertMatToJpeg, ProcessedImageData, processImage } from "../opencv";
 
 const prisma = new PrismaClient();
 
@@ -18,7 +19,6 @@ const storage = new Storage({
   },
 });
 
-// Define the type for job data
 interface JobData {
   imagePath: string;
 }
@@ -50,12 +50,6 @@ export const imageWorker = new Worker<JobData>(
       );
       const file = bucket.file(`image_${path.basename(imagePath)}`);
 
-      // const [url] = await file.getSignedUrl({
-      //   version: "v4",
-      //   action: "read",
-      //   expires: Date.now() + 15 * 60 * 1000, // 15 mins
-      // });
-
       await file.save(imageBuffer, {
         contentType: "image/jpeg",
       });
@@ -70,34 +64,28 @@ export const imageWorker = new Worker<JobData>(
         throw new Error("Failed to describe image");
       }
 
-      const processedData: ProcessedImageData = processImage(imagePath);
+      // const processedData: ProcessedImageData = processImage(imagePath);
 
-      if (!processedData.imageWithBoxes) {
-        throw new Error("Failed to process image");
-      }
+      // if (!processedData.imageWithBoxes) {
+      //   throw new Error("Failed to process image");
+      // }
 
-      const { objects, keyPoints, descriptors, imageWithBoxes } = processedData;
+      // const { objects, keyPoints, descriptors, imageWithBoxes } = processedData;
 
-      console.log({ objects, keyPoints, descriptors, imageWithBoxes });
+      // console.log({ objects, keyPoints, descriptors, imageWithBoxes });
 
-      if (!imageWithBoxes) {
-        throw new Error("Failed to get image with boxes");
-      }
+      // if (!imageWithBoxes) {
+      //   throw new Error("Failed to get image with boxes");
+      // }
 
-      const imageWithBoxesJpeg = convertMatToJpeg(imageWithBoxes);
+      // const imageWithBoxesJpeg = convertMatToJpeg(imageWithBoxes);
 
-      const fileWithBoxes = bucket.file(
-        `image_with_boxes_${path.basename(imagePath)}`
-      );
-      await fileWithBoxes.save(imageWithBoxesJpeg, {
-        contentType: "image/jpeg",
-      });
-
-      // Clean up
-      processedData.objects.delete();
-      processedData.keyPoints.delete();
-      processedData.descriptors.delete();
-      processedData.imageWithBoxes.delete();
+      // const fileWithBoxes = bucket.file(
+      //   `image_with_boxes_${path.basename(imagePath)}`
+      // );
+      // await fileWithBoxes.save(imageWithBoxesJpeg, {
+      //   contentType: "image/jpeg",
+      // });
 
       // 4. Save metadata to database
       const newImage = await prisma.image.create({
@@ -125,8 +113,8 @@ export const imageWorker = new Worker<JobData>(
   { connection: redisConfig }
 );
 
-async function runWorker() {
-  console.log("Starting worker...");
+async function runImageWorker() {
+  console.log("Starting Image Worker...");
 
   const queueEvents = new QueueEvents("image-processing", {
     connection: redisConfig,
@@ -148,4 +136,4 @@ async function runWorker() {
   await new Promise(() => {});
 }
 
-runWorker().catch(console.error);
+runImageWorker().catch(console.error);

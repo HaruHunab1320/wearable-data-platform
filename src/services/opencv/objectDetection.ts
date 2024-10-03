@@ -1,9 +1,9 @@
-import * as cv from "opencv4nodejs";
+import cv, { Rect } from "@u4/opencv4nodejs";
 
 export async function detectObject(
   imagePath: string,
   modelPath: string
-): Promise<cv.Rect[]> {
+): Promise<Rect[]> {
   const classifier = new cv.CascadeClassifier(modelPath);
 
   // Read the image

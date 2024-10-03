@@ -1,15 +1,15 @@
-import * as cv from "opencv4nodejs";
+import cv, { Mat, HistAxes, calcHist } from "@u4/opencv4nodejs";
 
-export function calculateHistogram(image: cv.Mat): cv.Mat {
+export function calculateHistogram(image: Mat): Mat {
   const gray = image.cvtColor(cv.COLOR_BGR2GRAY);
 
-  const histAxes = new cv.HistAxes({
+  const histAxes = new HistAxes({
     channel: 0,
     bins: 256,
     ranges: [0, 256],
   });
 
-  const hist = cv.calcHist(gray, [histAxes]);
+  const hist = calcHist(gray, [histAxes]);
 
   gray.release();
 

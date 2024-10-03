@@ -8,8 +8,6 @@ interface JobData {
 }
 
 // Create the queue for image processing
-const imageQueue = new Queue<JobData>("image-processing", {
+export const imageQueue = new Queue<JobData>("image-processing", {
   connection: redisConfig,
 });
-
-export default imageQueue;

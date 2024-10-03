@@ -1,14 +1,14 @@
-import * as cv from "opencv4nodejs";
+import cv, { Mat, Contour, Rect, Vec3 } from "@u4/opencv4nodejs";
 
-export function drawContours(image: cv.Mat, contours: cv.Contour[]): cv.Mat {
+export function drawContours(image: Mat, contours: Contour[]): Mat {
   const output = image.copy();
   for (let i = 0; i < contours.length; i++) {
-    output.drawContours([contours[i]], new cv.Vec3(0, 255, 0), -1, 2);
+    output.drawContours([contours[i].getPoints()], 0, new Vec3(0, 255, 0), 2);
   }
   return output;
 }
 
-export function drawBoundingBoxes(image: cv.Mat, objects: cv.Rect[]): cv.Mat {
+export function drawBoundingBoxes(image: Mat, objects: Rect[]): Mat {
   const output = image.copy();
   for (const rect of objects) {
     const point1 = new cv.Point2(rect.x, rect.y);

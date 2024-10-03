@@ -1,10 +1,10 @@
-import * as cv from "opencv4nodejs";
+import cv, { Mat, Rect } from "@u4/opencv4nodejs";
 
 export async function detectFacesWithDNN(
-  image: cv.Mat,
+  image: Mat,
   modelPath: string,
   configPath: string
-): Promise<cv.Rect[]> {
+): Promise<Rect[]> {
   const net = await cv.readNetFromCaffeAsync(configPath, modelPath);
 
   const blob = cv.blobFromImage(
@@ -19,7 +19,7 @@ export async function detectFacesWithDNN(
   net.setInput(blob);
 
   const detections = await net.forwardAsync();
-  const faces: cv.Rect[] = [];
+  const faces: Rect[] = [];
 
   for (let i = 0; i < detections.rows; i++) {
     const confidence = detections.at(i, 2);
@@ -28,7 +28,7 @@ export async function detectFacesWithDNN(
       const y1 = detections.at(i, 4) * image.rows;
       const x2 = detections.at(i, 5) * image.cols;
       const y2 = detections.at(i, 6) * image.rows;
-      faces.push(new cv.Rect(x1, y1, x2 - x1, y2 - y1));
+      faces.push(new Rect(x1, y1, x2 - x1, y2 - y1));
     }
   }
 

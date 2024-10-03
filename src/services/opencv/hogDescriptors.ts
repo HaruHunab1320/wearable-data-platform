@@ -1,12 +1,12 @@
-import * as cv from "opencv4nodejs";
+import cv, { HOGDescriptor } from "@u4/opencv4nodejs";
 
 export function detectWithHOG(imagePath: string) {
   // Load the image
   const image = cv.imread(imagePath);
 
   // Initialize HOGDescriptor with default people detector
-  const hog = new cv.HOGDescriptor();
-  hog.setSVMDetector(hog.getDefaultPeopleDetector());
+  const hog = new HOGDescriptor();
+  hog.setSVMDetector(HOGDescriptor.getDefaultPeopleDetector());
 
   // Detect people
   const { foundLocations, foundWeights } = hog.detectMultiScale(image);

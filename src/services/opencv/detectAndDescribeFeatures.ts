@@ -1,4 +1,4 @@
-import * as cv from "opencv4nodejs";
+import cv from "@u4/opencv4nodejs";
 
 // Function to detect keypoints and compute descriptors
 export function detectAndDescribeFeatures(imagePath: string) {

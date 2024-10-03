@@ -1,32 +1,48 @@
-import * as cv from "opencv4nodejs";
+import cv from "@u4/opencv4nodejs";
 import { detectWithHOG } from "./hogDescriptors";
+import { detectFacesWithDNN } from "./dnnFaceDetection";
 import { detectAndDescribeFeatures } from "./detectAndDescribeFeatures";
-import { drawBoundingBoxes } from "./drawingFunctions";
+import { findContours } from "./shapeDescriptors";
+import { drawBoundingBoxes, drawContours } from "./drawingFunctions";
 
-export interface ProcessedImageData {
-  objects: cv.Rect[];
-  keyPoints: cv.KeyPoint[];
-  descriptors: cv.Mat;
-  imageWithBoxes: cv.Mat;
-}
-
-export function processImage(imagePath: string): ProcessedImageData {
+export async function processImage(
+  imagePath: string,
+  modelPath: string,
+  configPath: string
+) {
   const image = cv.imread(imagePath);
 
-  // 1. Object Detection
-  const objects = detectWithHOG(imagePath);
-  const imageWithBoxes = drawBoundingBoxes(image, objects);
+  // Detect people
+  const people = detectWithHOG(imagePath);
 
-  // 2. Feature Detection and Description
+  // Detect faces
+  const faces = await detectFacesWithDNN(image, modelPath, configPath);
+
+  // Detect features
   const { keyPoints, descriptors } = detectAndDescribeFeatures(imagePath);
+
+  // Find contours
+  const contours = await findContours(image);
+
+  // Draw results
+  let resultImage = image.copy();
+  resultImage = drawBoundingBoxes(resultImage, people);
+  resultImage = drawBoundingBoxes(resultImage, faces);
+  resultImage = drawContours(resultImage, contours);
+
+  // Display or save the result
+  cv.imshow("Processed Image", resultImage);
+  cv.waitKey();
 
   // Clean up
   image.release();
+  resultImage.release();
 
   return {
-    objects,
+    people,
+    faces,
     keyPoints,
     descriptors,
-    imageWithBoxes,
+    contours,
   };
 }
