@@ -10,7 +10,7 @@
     "start": "NODE_ENV=production ts-node server.ts",
     "lint": "eslint .",
     "image-worker": "ts-node src/services/Job-Queue/imageWorker.ts",
-    "test:process-image": "ts-node src/scripts/testProcessImage.tsi"
+    "test:process-image": "ts-node src/scripts/testProcessImage.ts"
   },
   "keywords": [],
   "author": "",
